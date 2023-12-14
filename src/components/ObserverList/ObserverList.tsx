@@ -1,28 +1,64 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef } from "react";
 import styles from "./ObserverList.module.scss";
-import { Loader2 } from "lucide-react";
 
 export default function ObserverList({
-  maxLength,
-  renderLength,
-  renderFunction,
+  items,
+  height,
+  gap,
 }: {
-  maxLength: number;
-  renderLength: number;
-  renderFunction: (index: number) => React.ReactNode;
+  items: number[] | string[];
+  height: number;
+  gap: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [indexes, setIndexes] = useState<number[]>(
-    Array.from({ length: renderLength }, (_, i) => i),
-  );
-  const observer = useRef<IntersectionObserver | null>(null);
+  const refBottom = useRef<HTMLDivElement>(null);
+  const refTop = useRef<HTMLDivElement>(null);
+  const refWrapper = useRef<HTMLDivElement>(null);
+  const [indexes, setIndexes] = React.useState<number[]>([]);
 
-  useEffect(() => {
-    observer.current = new IntersectionObserver(
+  React.useEffect(() => {
+    const h = window.innerHeight;
+    const count = Math.floor(h / (height - gap));
+    setIndexes(Array.from({ length: count + 1 }).map((_, i) => i));
+  }, []);
+
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
       (entries: IntersectionObserverEntry[]) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setIndexes(completeIndexes(indexes, maxLength, renderLength));
+            const copy = indexes.slice(1);
+            copy.push(indexes[indexes.length - 1] + 1);
+            setIndexes(copy);
+          }
+        });
+      },
+      {
+        threshold: 0,
+      },
+    );
+    if (refBottom.current) {
+      observer.observe(refBottom.current);
+    }
+
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      }
+    };
+  }, [indexes]);
+
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries: IntersectionObserverEntry[]) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const copy = indexes.slice(0);
+            copy.pop();
+            copy.unshift(copy[0] - 1);
+            setIndexes(copy);
+            if (refWrapper.current) {
+              refWrapper.current.scrollIntoView(true);
+            }
           }
         });
       },
@@ -30,47 +66,43 @@ export default function ObserverList({
         threshold: 1,
       },
     );
-
-    if (ref.current) {
-      observer.current.observe(ref.current);
+    if (refTop.current) {
+      observer.observe(refTop.current);
     }
 
     return () => {
-      if (observer.current) {
-        observer.current.disconnect();
+      if (observer) {
+        observer.disconnect();
       }
     };
   }, [indexes]);
-
   return (
     <>
-      {indexes.map((el) => {
-        return (
-          <div key={el} className={styles.wrapper}>
-            {renderFunction(el)}
-          </div>
-        );
-      })}
-      {indexes.length !== maxLength && (
-        <div className={styles.wrapper} ref={ref}>
-          <Loader2 size={16} className={styles.loader} />
-        </div>
+      {indexes[0] !== 0 && <div ref={refTop} className={styles.block} />}
+      <div
+        className={styles.wrapper}
+        style={{
+          gap,
+        }}
+        ref={refWrapper}
+      >
+        {indexes.map((el) => {
+          return (
+            <div
+              key={el}
+              style={{
+                height,
+              }}
+              className={styles.item}
+            >
+              {items[el]}
+            </div>
+          );
+        })}
+      </div>
+      {indexes[indexes.length - 1] !== items.length - 1 && (
+        <div ref={refBottom} className={styles.block} />
       )}
     </>
   );
-}
-
-function completeIndexes(
-  indexes: number[],
-  maxLength: number,
-  renderLength: number,
-): number[] {
-  const last = indexes[indexes.length - 1];
-  const copy = indexes.slice(0);
-  for (let i = last + 1; i < last + renderLength + 1; i++) {
-    if (i < maxLength) {
-      copy.push(i);
-    }
-  }
-  return copy;
 }

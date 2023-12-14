@@ -1,15 +1,11 @@
 import ObserverList from "./components/ObserverList/ObserverList.tsx";
 
-const list = new Array(100000).fill(0);
+const list = Array.from({ length: 10000000 }).map((_, i) => i);
 
 function App() {
   return (
     <>
-      <ObserverList
-        maxLength={list.length}
-        renderLength={1}
-        renderFunction={(index: number) => <div>{list[index]}</div>}
-      />
+      <ObserverList items={list} height={200} gap={20} />
     </>
   );
 }
